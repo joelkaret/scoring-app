@@ -11,6 +11,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import JoinInfo from "../components/JoinInfo";
 import { motion, LayoutGroup } from "framer-motion";
@@ -85,6 +86,8 @@ export default function Host() {
   const [sortMode, setSortMode] = useState<SortMode>("creation");
   const [scoreSnapshot, setScoreSnapshot] = useState<string[]>([]);
   const [menuState, setMenuState] = useState<{ anchor: HTMLElement; guest: Guest } | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
 
   async function loadGuests(roomId: string) {
     const { data } = await supabase
@@ -159,6 +162,15 @@ export default function Host() {
       .eq("id", guest.id);
   }
 
+  async function saveTitle() {
+    const trimmed = titleInput.trim();
+    if (trimmed && trimmed !== room?.name && room) {
+      await supabase.from("rooms").update({ name: trimmed }).eq("id", room.id);
+      setRoom({ ...room, name: trimmed });
+    }
+    setEditingTitle(false);
+  }
+
   async function removeGuest(guestId: string) {
     await supabase.from("guests").delete().eq("id", guestId);
   }
@@ -219,9 +231,30 @@ export default function Host() {
         }}
       >
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: "bold" }}>
-            {room?.name}
-          </Typography>
+          {editingTitle ? (
+            <StyledTextField
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveTitle();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              autoFocus
+              sx={{ mb: 0.5 }}
+              inputProps={{ style: { fontSize: "1.5rem", fontWeight: "bold" } }}
+            />
+          ) : (
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 1, cursor: "pointer", "&:hover .edit-icon": { opacity: 1 } }}
+              onClick={() => { setTitleInput(room?.name ?? ""); setEditingTitle(true); }}
+            >
+              <Typography variant="h4" sx={{ fontWeight: "bold" }}>
+                {room?.name}
+              </Typography>
+              <EditIcon className="edit-icon" sx={{ color: "#888", fontSize: "1.2rem", opacity: 0.4, transition: "opacity 0.2s" }} />
+            </Box>
+          )}
           <Typography sx={{ color: "#888" }}>
             Room code:{" "}
             <Box component="span" sx={{ color: "#FFD700", fontWeight: "bold" }}>
