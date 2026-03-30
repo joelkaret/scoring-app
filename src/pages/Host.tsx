@@ -14,14 +14,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
-import { useEffect, useRef, useState } from "react";
-import { RealtimeChannel } from "@supabase/supabase-js";
+import StyledTextField from "../components/StyledTextField";
+import { useEffect, useState } from "react";
 
 interface Guest {
   id: string;
   name: string;
   score: number;
-  guest_uuid: string;
 }
 
 interface Room {
@@ -37,7 +36,7 @@ export default function Host() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [error, setError] = useState("");
   const [authorized, setAuthorized] = useState(false);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const [newGuestName, setNewGuestName] = useState("");
 
   async function loadGuests(roomId: string) {
     const { data } = await supabase
@@ -47,26 +46,6 @@ export default function Host() {
       .order("score", { ascending: false });
 
     if (data) setGuests(data);
-  }
-
-  function subscribeToGuests(roomId: string) {
-    const channel = supabase
-      .channel(`guests_${roomId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "guests",
-          filter: `room_id=eq.${roomId}`,
-        },
-        () => {
-          loadGuests(roomId);
-        },
-      )
-      .subscribe();
-
-    channelRef.current = channel;
   }
 
   async function loadRoom() {
@@ -81,7 +60,6 @@ export default function Host() {
       return;
     }
 
-    // Check host token
     const storedToken = localStorage.getItem(`host_token_${code}`);
     if (storedToken !== roomData.host_token) {
       setError("You are not the host of this room.");
@@ -91,7 +69,6 @@ export default function Host() {
     setRoom(roomData);
     setAuthorized(true);
     loadGuests(roomData.id);
-    subscribeToGuests(roomData.id);
   }
 
   useEffect(() => {
@@ -100,7 +77,7 @@ export default function Host() {
     loadRoom();
 
     const channel = supabase
-      .channel(`guests_${code}`)
+      .channel(`host_${code}`)
       .on(
         "postgres_changes",
         {
@@ -118,6 +95,18 @@ export default function Host() {
       channel.unsubscribe();
     };
   }, [code]);
+
+  async function addGuest() {
+    if (!newGuestName.trim() || !room) return;
+
+    await supabase.from("guests").insert({
+      room_id: room.id,
+      name: newGuestName.trim(),
+      score: 0,
+    });
+
+    setNewGuestName("");
+  }
 
   async function adjustScore(guest: Guest, delta: number) {
     await supabase
@@ -201,10 +190,24 @@ export default function Host() {
         </PrimaryButton>
       </Box>
 
+      {/* Add guest */}
+      <Box sx={{ display: "flex", gap: 2, mb: 4, maxWidth: 600 }}>
+        <StyledTextField
+          label="Add player"
+          value={newGuestName}
+          onChange={(e) => setNewGuestName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addGuest()}
+          sx={{ flex: 1 }}
+        />
+        <PrimaryButton onClick={addGuest} disabled={!newGuestName.trim()}>
+          Add
+        </PrimaryButton>
+      </Box>
+
       <List sx={{ maxWidth: 600 }}>
         {guests.length === 0 && (
           <Typography sx={{ color: "#555" }}>
-            No guests yet. Share the room code!
+            No players yet. Add some above!
           </Typography>
         )}
         {guests.map((guest, index) => (

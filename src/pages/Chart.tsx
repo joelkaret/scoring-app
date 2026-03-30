@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
 import { supabase } from "../supabase";
+import PrimaryButton from "../components/PrimaryButton";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 
 interface Guest {
   id: string;
@@ -13,6 +16,7 @@ export default function Chart() {
   const { code } = useParams<{ code: string }>();
   const [roomName, setRoomName] = useState("");
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!code) return;
@@ -60,6 +64,27 @@ export default function Chart() {
 
   const maxScore = Math.max(...guests.map((g) => g.score), 1);
 
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  async function handleFullscreen() {
+    try {
+      if (isFullscreen) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.error("Fullscreen error", err);
+    }
+  }
+
   return (
     <Box
       sx={{
@@ -72,6 +97,21 @@ export default function Chart() {
         gap: 2,
       }}
     >
+      <Box
+        sx={{
+          position: "fixed",
+          top: 16,
+          right: 16,
+          zIndex: 1000,
+        }}
+      >
+        <PrimaryButton
+          onClick={handleFullscreen}
+          sx={{ minWidth: 0, padding: "8px" }}
+        >
+          {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+        </PrimaryButton>
+      </Box>
       <Typography
         variant="h4"
         sx={{ fontWeight: "bold", color: "#FFD700", mb: 2 }}

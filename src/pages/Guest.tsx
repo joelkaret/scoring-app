@@ -1,17 +1,22 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Typography } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
-import StyledTextField from "../components/StyledTextField";
 
 interface Guest {
   id: string;
   name: string;
   score: number;
-  guest_uuid: string;
 }
 
 interface Room {
@@ -23,10 +28,42 @@ export default function Guest() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
+  const [players, setPlayers] = useState<Guest[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [guest, setGuest] = useState<Guest | null>(null);
-  const [nameInput, setNameInput] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!code) return;
+
+    async function loadRoom() {
+      const { data: roomData, error: roomError } = await supabase
+        .from("rooms")
+        .select("id, name")
+        .eq("code", code!.toUpperCase())
+        .single();
+
+      if (roomError || !roomData) {
+        setError("Room not found. Check your code and try again.");
+        setLoading(false);
+        return;
+      }
+
+      setRoom(roomData);
+
+      const { data: guestData } = await supabase
+        .from("guests")
+        .select("id, name, score")
+        .eq("room_id", roomData.id)
+        .order("name");
+
+      setPlayers(guestData ?? []);
+      setLoading(false);
+    }
+
+    loadRoom();
+  }, [code]);
 
   function subscribeToGuest(guestId: string) {
     supabase
@@ -52,78 +89,19 @@ export default function Guest() {
           filter: `id=eq.${guestId}`,
         },
         () => {
-          // Host removed this guest
-          localStorage.removeItem(`guest_uuid_${code}`);
           setGuest(null);
+          setSelectedId("");
           setError("You were removed from the room by the host.");
         },
       )
       .subscribe();
   }
 
-  async function loadRoom() {
-    const { data, error } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("code", code!.toUpperCase())
-      .single();
-
-    if (error || !data) {
-      setError("Room not found. Check your code and try again.");
-      setLoading(false);
-      return;
-    }
-
-    setRoom(data);
-
-    // Check if already joined this room
-    const guestUuid = localStorage.getItem(`guest_uuid_${code}`);
-    if (guestUuid) {
-      const { data: existingGuest } = await supabase
-        .from("guests")
-        .select("*")
-        .eq("guest_uuid", guestUuid)
-        .eq("room_id", data.id)
-        .single();
-
-      if (existingGuest) {
-        setGuest(existingGuest);
-        subscribeToGuest(existingGuest.id);
-      }
-    }
-
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    if (!code) return;
-    loadRoom();
-  }, [code]);
-
-  async function handleJoin() {
-    if (!nameInput.trim() || !room) return;
-
-    const guestUuid = crypto.randomUUID();
-
-    const { data, error } = await supabase
-      .from("guests")
-      .insert({
-        room_id: room.id,
-        name: nameInput.trim(),
-        score: 0,
-        guest_uuid: guestUuid,
-      })
-      .select()
-      .single();
-
-    if (error || !data) {
-      setError("Failed to join room. Please try again.");
-      return;
-    }
-
-    localStorage.setItem(`guest_uuid_${code}`, guestUuid);
-    setGuest(data);
-    subscribeToGuest(data.id);
+  function handleSelectName() {
+    const player = players.find((p) => p.id === selectedId);
+    if (!player) return;
+    setGuest(player);
+    subscribeToGuest(player.id);
   }
 
   async function adjustScore(delta: number) {
@@ -133,7 +111,7 @@ export default function Guest() {
       .from("guests")
       .update({ score: newScore })
       .eq("id", guest.id)
-      .select()
+      .select("id, name, score")
       .single();
 
     if (data) setGuest(data);
@@ -176,7 +154,7 @@ export default function Guest() {
     );
   }
 
-  // Name entry screen
+  // Name selection screen
   if (!guest) {
     return (
       <Box
@@ -195,26 +173,77 @@ export default function Guest() {
         <Typography variant="h4" sx={{ fontWeight: "bold" }}>
           {room?.name}
         </Typography>
-        <Typography sx={{ color: "#888" }}>Enter your name to join</Typography>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.5,
-            width: "100%",
-            maxWidth: 360,
-          }}
-        >
-          <StyledTextField
-            label="Your name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-          />
-          <PrimaryButton onClick={handleJoin} disabled={!nameInput.trim()}>
-            Join
-          </PrimaryButton>
-        </Box>
+        <Typography sx={{ color: "#888" }}>Select your name to join</Typography>
+
+        {players.length === 0 ? (
+          <Typography sx={{ color: "#888" }}>
+            No players added yet. Ask the host to add you.
+          </Typography>
+        ) : (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+              width: "100%",
+              maxWidth: 360,
+            }}
+          >
+            <FormControl fullWidth>
+              <InputLabel
+                sx={{
+                  color: "#888",
+                  "&.Mui-focused": { color: "#FFD700" },
+                }}
+              >
+                Your name
+              </InputLabel>
+              <Select
+                value={selectedId}
+                label="Your name"
+                onChange={(e) => setSelectedId(e.target.value)}
+                sx={{
+                  color: "#fff",
+                  backgroundColor: "#1a1a1a",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#444",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#FFD700",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#FFD700",
+                  },
+                  "& .MuiSvgIcon-root": { color: "#888" },
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      backgroundColor: "#1a1a1a",
+                      color: "#fff",
+                      "& .MuiMenuItem-root:hover": {
+                        backgroundColor: "#2a2a2a",
+                      },
+                      "& .Mui-selected": {
+                        backgroundColor: "#333 !important",
+                        color: "#FFD700",
+                      },
+                    },
+                  },
+                }}
+              >
+                {players.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <PrimaryButton onClick={handleSelectName} disabled={!selectedId}>
+              Join
+            </PrimaryButton>
+          </Box>
+        )}
       </Box>
     );
   }
