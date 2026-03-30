@@ -22,12 +22,10 @@ export default function Home() {
     setError("");
 
     const code = generateCode();
-    const hostToken = crypto.randomUUID();
 
     const { error } = await supabase.from("rooms").insert({
       code,
       name: roomName.trim(),
-      host_token: hostToken,
     });
 
     if (error) {
@@ -36,7 +34,6 @@ export default function Home() {
       return;
     }
 
-    localStorage.setItem(`host_token_${code}`, hostToken);
     navigate(`/host/${code}`);
   }
 

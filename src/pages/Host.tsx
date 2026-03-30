@@ -26,7 +26,6 @@ interface Guest {
 interface Room {
   id: string;
   name: string;
-  host_token: string;
 }
 
 export default function Host() {
@@ -35,7 +34,7 @@ export default function Host() {
   const [room, setRoom] = useState<Room | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [error, setError] = useState("");
-  const [authorized, setAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newGuestName, setNewGuestName] = useState("");
 
   async function loadGuests(roomId: string) {
@@ -51,23 +50,18 @@ export default function Host() {
   async function loadRoom() {
     const { data: roomData, error: roomError } = await supabase
       .from("rooms")
-      .select("*")
+      .select("id, name")
       .eq("code", code)
       .single();
 
     if (roomError || !roomData) {
       setError("Room not found.");
-      return;
-    }
-
-    const storedToken = localStorage.getItem(`host_token_${code}`);
-    if (storedToken !== roomData.host_token) {
-      setError("You are not the host of this room.");
+      setLoading(false);
       return;
     }
 
     setRoom(roomData);
-    setAuthorized(true);
+    setLoading(false);
     loadGuests(roomData.id);
   }
 
@@ -139,7 +133,7 @@ export default function Host() {
     );
   }
 
-  if (!authorized) {
+  if (loading) {
     return (
       <Box
         sx={{
