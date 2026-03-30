@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
+import JoinInfo from "../components/JoinInfo";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
@@ -91,6 +92,14 @@ export default function Chart() {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "f" || e.key === "F") handleFullscreen();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
   async function handleFullscreen() {
     try {
       if (isFullscreen) {
@@ -109,7 +118,9 @@ export default function Chart() {
         minHeight: "100vh",
         backgroundColor: "#000",
         color: "#fff",
-        padding: 4,
+        pt: 2,
+        px: 3,
+        pb: 2,
         display: "flex",
         flexDirection: "column",
         gap: rowGap,
@@ -117,25 +128,22 @@ export default function Chart() {
     >
       <Box
         sx={{
-          position: "fixed",
-          top: 16,
-          right: 16,
-          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1,
         }}
       >
-        <PrimaryButton
-          onClick={handleFullscreen}
-          sx={{ minWidth: 0, padding: "8px" }}
-        >
-          {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-        </PrimaryButton>
+        <Typography variant="h4" sx={{ fontWeight: "bold", color: "#FFD700" }}>
+          {roomName}
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <JoinInfo code={code!} size={64} />
+          <PrimaryButton onClick={handleFullscreen} sx={{ minWidth: 0, width: 40, height: 40, padding: 0, flexShrink: 0 }}>
+            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+          </PrimaryButton>
+        </Box>
       </Box>
-      <Typography
-        variant="h4"
-        sx={{ fontWeight: "bold", color: "#FFD700", mb: 2 }}
-      >
-        {roomName}
-      </Typography>
 
       <AnimatePresence>
         {guests.map((guest, index) => (

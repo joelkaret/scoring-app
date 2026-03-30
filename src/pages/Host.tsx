@@ -12,6 +12,7 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DeleteIcon from "@mui/icons-material/Delete";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import JoinInfo from "../components/JoinInfo";
 import { motion, LayoutGroup } from "framer-motion";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
@@ -234,6 +235,11 @@ export default function Host() {
         >
           Open Chart
         </PrimaryButton>
+      </Box>
+
+      {/* Join info: QR + code */}
+      <Box sx={{ mb: 4 }}>
+        <JoinInfo code={code!} size={96} />
       </Box>
 
       {/* Add player */}
