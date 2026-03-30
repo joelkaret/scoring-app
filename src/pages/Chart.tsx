@@ -58,7 +58,8 @@ export default function Chart() {
       .from("guests")
       .select("*")
       .eq("room_id", roomData.id)
-      .order("score", { ascending: false });
+      .order("score", { ascending: false })
+      .order("name", { ascending: true });
 
     if (guestData) setGuests(guestData);
   }

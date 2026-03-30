@@ -1,9 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Typography, IconButton } from "@mui/material";
+import {
+  Box,
+  Typography,
+  IconButton,
+  ToggleButtonGroup,
+  ToggleButton,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DeleteIcon from "@mui/icons-material/Delete";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
 import StyledTextField from "../components/StyledTextField";
@@ -20,14 +27,30 @@ interface Room {
   name: string;
 }
 
+type SortMode = "creation" | "alphabetical" | "score" | "live";
+
 function computeRanks(guests: Guest[]): Map<string, string> {
   const sorted = [...guests].sort((a, b) => b.score - a.score);
   const ranks = new Map<string, string>();
-  sorted.forEach((g, i) => {
-    const tied = i > 0 && sorted[i].score === sorted[i - 1].score;
-    ranks.set(g.id, tied ? "–" : `${i + 1}`);
+  sorted.forEach((g) => {
+    const rank = sorted.findIndex((s) => s.score === g.score) + 1;
+    ranks.set(g.id, `${rank}`);
   });
   return ranks;
+}
+
+function sortGuests(guests: Guest[], mode: SortMode): Guest[] {
+  const copy = [...guests];
+  switch (mode) {
+    case "alphabetical":
+      return copy.sort((a, b) => a.name.localeCompare(b.name));
+    case "score":
+    case "live":
+      return copy.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    case "creation":
+    default:
+      return copy; // already in creation order from DB
+  }
 }
 
 export default function Host() {
@@ -38,6 +61,7 @@ export default function Host() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [newGuestName, setNewGuestName] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("creation");
 
   async function loadGuests(roomId: string) {
     const { data } = await supabase
@@ -76,31 +100,21 @@ export default function Host() {
       .channel(`host_${code}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "guests",
-        },
-        () => {
-          loadRoom();
-        },
+        { event: "*", schema: "public", table: "guests" },
+        () => { loadRoom(); },
       )
       .subscribe();
 
-    return () => {
-      channel.unsubscribe();
-    };
+    return () => { channel.unsubscribe(); };
   }, [code]);
 
   async function addGuest() {
     if (!newGuestName.trim() || !room) return;
-
     await supabase.from("guests").insert({
       room_id: room.id,
       name: newGuestName.trim(),
       score: 0,
     });
-
     setNewGuestName("");
   }
 
@@ -153,16 +167,11 @@ export default function Host() {
   }
 
   const ranks = computeRanks(guests);
+  const sorted = sortGuests(guests, sortMode);
+  const isLive = sortMode === "live";
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        backgroundColor: "#000",
-        color: "#fff",
-        padding: 4,
-      }}
-    >
+    <Box sx={{ minHeight: "100vh", backgroundColor: "#000", color: "#fff", padding: 4 }}>
       {/* Header */}
       <Box
         sx={{
@@ -192,7 +201,7 @@ export default function Host() {
       </Box>
 
       {/* Add player */}
-      <Box sx={{ display: "flex", gap: 2, mb: 4, maxWidth: 480 }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 3, maxWidth: 480 }}>
         <StyledTextField
           label="Add player"
           value={newGuestName}
@@ -205,6 +214,41 @@ export default function Host() {
         </PrimaryButton>
       </Box>
 
+      {/* Sort controls */}
+      <ToggleButtonGroup
+        value={sortMode}
+        exclusive
+        onChange={(_, val) => val && setSortMode(val)}
+        sx={{ mb: 3 }}
+      >
+        {(
+          [
+            { value: "creation", label: "Creation order" },
+            { value: "alphabetical", label: "Alphabetical" },
+            { value: "score", label: "Score" },
+            { value: "live", label: "Live score" },
+          ] as { value: SortMode; label: string }[]
+        ).map(({ value, label }) => (
+          <ToggleButton
+            key={value}
+            value={value}
+            sx={{
+              color: "#888",
+              borderColor: "#333",
+              fontSize: "0.75rem",
+              "&.Mui-selected": {
+                color: "#000",
+                backgroundColor: "#FFD700",
+                "&:hover": { backgroundColor: "#e6c200" },
+              },
+              "&:hover": { borderColor: "#FFD700", color: "#FFD700" },
+            }}
+          >
+            {label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
       {/* Player grid */}
       {guests.length === 0 ? (
         <Typography sx={{ color: "#555" }}>
@@ -212,15 +256,21 @@ export default function Host() {
         </Typography>
       ) : (
         <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 2,
-          }}
+          sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}
+          component={isLive ? AnimatePresence : "div"}
+          {...(isLive ? { mode: "popLayout" as const } : {})}
         >
-          {guests.map((guest) => (
+          {sorted.map((guest) => (
             <Box
               key={guest.id}
+              {...(isLive
+                ? {
+                    component: motion.div,
+                    layout: true,
+                    layoutId: guest.id,
+                    transition: { duration: 0.4, ease: "easeInOut" },
+                  }
+                : {})}
               sx={{
                 backgroundColor: "#111",
                 border: "1px solid #222",
