@@ -10,7 +10,7 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DeleteIcon from "@mui/icons-material/Delete";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { supabase } from "../supabase";
 import PrimaryButton from "../components/PrimaryButton";
 import StyledTextField from "../components/StyledTextField";
@@ -39,17 +39,24 @@ function computeRanks(guests: Guest[]): Map<string, string> {
   return ranks;
 }
 
-function sortGuests(guests: Guest[], mode: SortMode): Guest[] {
+function applySort(guests: Guest[], mode: SortMode, snapshot: string[]): Guest[] {
   const copy = [...guests];
   switch (mode) {
     case "alphabetical":
       return copy.sort((a, b) => a.name.localeCompare(b.name));
-    case "score":
     case "live":
       return copy.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    case "score": {
+      // Use the captured snapshot order; any guests added after go at the end
+      const ordered = snapshot
+        .map((id) => copy.find((g) => g.id === id))
+        .filter((g): g is Guest => !!g);
+      const rest = copy.filter((g) => !snapshot.includes(g.id));
+      return [...ordered, ...rest];
+    }
     case "creation":
     default:
-      return copy; // already in creation order from DB
+      return copy;
   }
 }
 
@@ -62,6 +69,7 @@ export default function Host() {
   const [loading, setLoading] = useState(true);
   const [newGuestName, setNewGuestName] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("creation");
+  const [scoreSnapshot, setScoreSnapshot] = useState<string[]>([]);
 
   async function loadGuests(roomId: string) {
     const { data } = await supabase
@@ -107,6 +115,18 @@ export default function Host() {
 
     return () => { channel.unsubscribe(); };
   }, [code]);
+
+  function handleSortChange(_: unknown, newMode: SortMode | null) {
+    if (!newMode) return;
+    if (newMode === "score") {
+      // Capture current score order as a static snapshot
+      const snap = [...guests]
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+        .map((g) => g.id);
+      setScoreSnapshot(snap);
+    }
+    setSortMode(newMode);
+  }
 
   async function addGuest() {
     if (!newGuestName.trim() || !room) return;
@@ -167,8 +187,7 @@ export default function Host() {
   }
 
   const ranks = computeRanks(guests);
-  const sorted = sortGuests(guests, sortMode);
-  const isLive = sortMode === "live";
+  const sorted = applySort(guests, sortMode, scoreSnapshot);
 
   return (
     <Box sx={{ minHeight: "100vh", backgroundColor: "#000", color: "#fff", padding: 4 }}>
@@ -218,14 +237,14 @@ export default function Host() {
       <ToggleButtonGroup
         value={sortMode}
         exclusive
-        onChange={(_, val) => val && setSortMode(val)}
+        onChange={handleSortChange}
         sx={{ mb: 3 }}
       >
         {(
           [
             { value: "creation", label: "Creation order" },
             { value: "alphabetical", label: "Alphabetical" },
-            { value: "score", label: "Score" },
+            { value: "score", label: "Current score" },
             { value: "live", label: "Live score" },
           ] as { value: SortMode; label: string }[]
         ).map(({ value, label }) => (
@@ -255,22 +274,13 @@ export default function Host() {
           No players yet. Add some above!
         </Typography>
       ) : (
-        <Box
-          sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}
-          component={isLive ? AnimatePresence : "div"}
-          {...(isLive ? { mode: "popLayout" as const } : {})}
-        >
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
           {sorted.map((guest) => (
             <Box
               key={guest.id}
-              {...(isLive
-                ? {
-                    component: motion.div,
-                    layout: true,
-                    layoutId: guest.id,
-                    transition: { duration: 0.4, ease: "easeInOut" },
-                  }
-                : {})}
+              component={motion.div}
+              layout={sortMode === "live"}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
               sx={{
                 backgroundColor: "#111",
                 border: "1px solid #222",
