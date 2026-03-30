@@ -295,10 +295,11 @@ export default function Host() {
         </Typography>
       ) : (
         <LayoutGroup>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+          <motion.div layout style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {sorted.map((guest) => (
               <motion.div
                 key={guest.id}
+                layoutId={guest.id}
                 layout={sortMode === "live"}
                 transition={{ duration: 0.4, ease: "easeInOut" }}
                 style={CARD_STYLE}
@@ -371,7 +372,7 @@ export default function Host() {
                 </Box>
               </motion.div>
             ))}
-          </Box>
+          </motion.div>
         </LayoutGroup>
       )}
 

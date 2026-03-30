@@ -168,15 +168,17 @@ export default function Chart() {
                 {guest.score}
               </Typography>
             </Box>
-            <Box
-              sx={{
-                height: barHeight,
-                width: `${barPercent(guest.score)}%`,
-                backgroundColor: "#FFD700",
-                borderRadius: "0 4px 4px 0",
-                transition: "width 0.5s ease",
-              }}
-            />
+            <Box sx={{ width: "100%", overflow: "hidden" }}>
+              <Box
+                sx={{
+                  height: barHeight,
+                  width: `${barPercent(guest.score)}%`,
+                  backgroundColor: "#FFD700",
+                  borderRadius: "0 4px 4px 0",
+                  transition: "width 0.5s ease",
+                }}
+              />
+            </Box>
           </Box>
         ))}
       </AnimatePresence>
