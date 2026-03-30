@@ -68,6 +68,8 @@ export default function Chart() {
   const maxScore = Math.max(...guests.map((g) => g.score), 1);
   const minScore = Math.min(...guests.map((g) => g.score), 0);
   const scoreRange = maxScore - minScore || 1;
+  // Where the zero line sits as a % of the bar container width
+  const zeroPercent = (-minScore / scoreRange) * 100;
 
   // Scale bar height and row gap down as guest count grows.
   // Targets fitting ~15 comfortably; 20+ will scroll.
@@ -76,11 +78,11 @@ export default function Chart() {
   // rowGap in MUI spacing units (1 = 8px); minimum 0.5 (4px)
   const rowGap = Math.max(0.5, Math.min(2, 12 / count));
 
-  function barPercent(score: number) {
-    if (score <= 0) return 0;
-    // Scale from minScore to maxScore, with a 10% floor so non-zero scores
-    // always show a visible bar and differences near the top are exaggerated.
-    return 10 + ((score - minScore) / scoreRange) * 90;
+  function barGeometry(score: number): { left: number; width: number } {
+    if (score === 0) return { left: zeroPercent, width: 0 };
+    const w = (Math.abs(score) / scoreRange) * 100;
+    if (score > 0) return { left: zeroPercent, width: w };
+    return { left: zeroPercent - w, width: w };
   }
 
   useEffect(() => {
@@ -139,7 +141,16 @@ export default function Chart() {
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <JoinInfo code={code!} size={64} />
-          <PrimaryButton onClick={handleFullscreen} sx={{ minWidth: 0, width: 40, height: 40, padding: 0, flexShrink: 0 }}>
+          <PrimaryButton
+            onClick={handleFullscreen}
+            sx={{
+              minWidth: 0,
+              width: 40,
+              height: 40,
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
             {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
           </PrimaryButton>
         </Box>
@@ -163,7 +174,9 @@ export default function Chart() {
               }}
             >
               <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-                <Typography sx={{ color: "#555", fontSize: "0.85rem", minWidth: 20 }}>
+                <Typography
+                  sx={{ color: "#555", fontSize: "0.85rem", minWidth: 20 }}
+                >
                   {index > 0 && guests[index].score === guests[index - 1].score
                     ? "–"
                     : `${index + 1}.`}
@@ -176,16 +189,31 @@ export default function Chart() {
                 {guest.score}
               </Typography>
             </Box>
-            <Box sx={{ width: "100%", overflow: "hidden" }}>
-              <Box
-                sx={{
-                  height: barHeight,
-                  width: `${barPercent(guest.score)}%`,
-                  backgroundColor: "#FFD700",
-                  borderRadius: "0 4px 4px 0",
-                  transition: "width 0.5s ease",
-                }}
-              />
+            <Box
+              sx={{ width: "100%", position: "relative", height: barHeight }}
+            >
+              {(() => {
+                const { left, width } = barGeometry(guest.score);
+                // For a score of 0 show a stub: 2px
+                const stubWidth = "1px";
+                return (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: `${left}%`,
+                      width: guest.score === 0 ? stubWidth : `${width}%`,
+                      minWidth: guest.score === 0 ? stubWidth : undefined,
+                      height: "100%",
+                      backgroundColor: "#FFD700",
+                      borderRadius:
+                        guest.score < 0 ? "4px 0 0 4px" : "0 4px 4px 0",
+                      transition: "left 0.5s ease, width 0.5s ease",
+                      opacity: guest.score === 0 ? 0.35 : 1,
+                    }}
+                  />
+                );
+              })()}
             </Box>
           </Box>
         ))}
