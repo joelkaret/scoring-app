@@ -1,13 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  Box,
-  Typography,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-} from "@mui/material";
+import { Box, Typography, IconButton } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -28,6 +20,16 @@ interface Room {
   name: string;
 }
 
+function computeRanks(guests: Guest[]): Map<string, string> {
+  const sorted = [...guests].sort((a, b) => b.score - a.score);
+  const ranks = new Map<string, string>();
+  sorted.forEach((g, i) => {
+    const tied = i > 0 && sorted[i].score === sorted[i - 1].score;
+    ranks.set(g.id, tied ? "–" : `${i + 1}`);
+  });
+  return ranks;
+}
+
 export default function Host() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -42,7 +44,7 @@ export default function Host() {
       .from("guests")
       .select("*")
       .eq("room_id", roomId)
-      .order("score", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (data) setGuests(data);
   }
@@ -150,6 +152,8 @@ export default function Host() {
     );
   }
 
+  const ranks = computeRanks(guests);
+
   return (
     <Box
       sx={{
@@ -159,6 +163,7 @@ export default function Host() {
         padding: 4,
       }}
     >
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -173,7 +178,9 @@ export default function Host() {
           </Typography>
           <Typography sx={{ color: "#888" }}>
             Room code:{" "}
-            <span style={{ color: "#FFD700", fontWeight: "bold" }}>{code}</span>
+            <Box component="span" sx={{ color: "#FFD700", fontWeight: "bold" }}>
+              {code}
+            </Box>
           </Typography>
         </Box>
         <PrimaryButton
@@ -184,8 +191,8 @@ export default function Host() {
         </PrimaryButton>
       </Box>
 
-      {/* Add guest */}
-      <Box sx={{ display: "flex", gap: 2, mb: 4, maxWidth: 600 }}>
+      {/* Add player */}
+      <Box sx={{ display: "flex", gap: 2, mb: 4, maxWidth: 480 }}>
         <StyledTextField
           label="Add player"
           value={newGuestName}
@@ -198,51 +205,103 @@ export default function Host() {
         </PrimaryButton>
       </Box>
 
-      <List sx={{ maxWidth: 600 }}>
-        {guests.length === 0 && (
-          <Typography sx={{ color: "#555" }}>
-            No players yet. Add some above!
-          </Typography>
-        )}
-        {guests.map((guest, index) => (
-          <Box key={guest.id}>
-            <ListItem sx={{ px: 0 }}>
-              <Typography
-                sx={{ color: "#FFD700", fontWeight: "bold", minWidth: 32 }}
-              >
-                {index + 1}.
-              </Typography>
-              <ListItemText
-                primary={guest.name}
-                secondary={`Score: ${guest.score}`}
-                primaryTypographyProps={{ color: "#fff", fontWeight: "bold" }}
-                secondaryTypographyProps={{ color: "#888" }}
-              />
+      {/* Player grid */}
+      {guests.length === 0 ? (
+        <Typography sx={{ color: "#555" }}>
+          No players yet. Add some above!
+        </Typography>
+      ) : (
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          {guests.map((guest) => (
+            <Box
+              key={guest.id}
+              sx={{
+                backgroundColor: "#111",
+                border: "1px solid #222",
+                borderRadius: 2,
+                padding: 2,
+                width: 180,
+                display: "flex",
+                flexDirection: "column",
+                gap: 1,
+              }}
+            >
+              {/* Position + name */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography
+                  sx={{
+                    color: "#FFD700",
+                    fontWeight: "bold",
+                    fontSize: "0.8rem",
+                    backgroundColor: "#222",
+                    borderRadius: 1,
+                    px: 0.75,
+                    py: 0.25,
+                    lineHeight: 1.5,
+                    minWidth: 24,
+                    textAlign: "center",
+                  }}
+                >
+                  {ranks.get(guest.id)}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontWeight: "bold",
+                    fontSize: "1rem",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                  }}
+                  title={guest.name}
+                >
+                  {guest.name}
+                </Typography>
+              </Box>
+
+              {/* Score */}
+              <Typography
+                sx={{
+                  color: "#FFD700",
+                  fontWeight: "bold",
+                  fontSize: "2rem",
+                  lineHeight: 1,
+                }}
+              >
+                {guest.score}
+              </Typography>
+
+              {/* Controls */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: "auto" }}>
                 <IconButton
                   onClick={() => adjustScore(guest, -1)}
-                  sx={{ color: "#FFD700" }}
+                  sx={{ color: "#FFD700", padding: "6px" }}
                 >
-                  <RemoveIcon />
+                  <RemoveIcon fontSize="small" />
                 </IconButton>
                 <IconButton
                   onClick={() => adjustScore(guest, 1)}
-                  sx={{ color: "#FFD700" }}
+                  sx={{ color: "#FFD700", padding: "6px" }}
                 >
-                  <AddIcon />
+                  <AddIcon fontSize="small" />
                 </IconButton>
                 <IconButton
                   onClick={() => removeGuest(guest.id)}
-                  sx={{ color: "#cc0000" }}
+                  sx={{ color: "#cc0000", padding: "6px", ml: "auto" }}
                 >
-                  <DeleteIcon />
+                  <DeleteIcon fontSize="small" />
                 </IconButton>
               </Box>
-            </ListItem>
-            <Divider sx={{ borderColor: "#222" }} />
-          </Box>
-        ))}
-      </List>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

@@ -155,7 +155,9 @@ export default function Chart() {
             >
               <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
                 <Typography sx={{ color: "#555", fontSize: "0.85rem", minWidth: 20 }}>
-                  {index + 1}.
+                  {index > 0 && guests[index].score === guests[index - 1].score
+                    ? "–"
+                    : `${index + 1}.`}
                 </Typography>
                 <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem" }}>
                   {guest.name}
