@@ -63,6 +63,15 @@ export default function Chart() {
   }
 
   const maxScore = Math.max(...guests.map((g) => g.score), 1);
+  const minScore = Math.min(...guests.map((g) => g.score), 0);
+  const scoreRange = maxScore - minScore || 1;
+
+  function barPercent(score: number) {
+    if (score <= 0) return 0;
+    // Scale from minScore to maxScore, with a 10% floor so non-zero scores
+    // always show a visible bar and differences near the top are exaggerated.
+    return 10 + ((score - minScore) / scoreRange) * 90;
+  }
 
   useEffect(() => {
     function handleFullscreenChange() {
@@ -120,33 +129,36 @@ export default function Chart() {
       </Typography>
 
       {guests.map((guest, index) => (
-        <Box
-          key={guest.id}
-          sx={{ display: "flex", alignItems: "center", gap: 2 }}
-        >
-          <Typography sx={{ minWidth: 24, color: "#555", fontSize: "0.9rem" }}>
-            {index + 1}
-          </Typography>
-          <Typography
-            sx={{ minWidth: 150, fontWeight: "bold", fontSize: "1.1rem" }}
-          >
-            {guest.name}
-          </Typography>
+        <Box key={guest.id} sx={{ mb: 1 }}>
           <Box
             sx={{
-              height: 40,
-              width: `${(guest.score / maxScore) * 100}%`,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              mb: 0.5,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+              <Typography sx={{ color: "#555", fontSize: "0.85rem", minWidth: 20 }}>
+                {index + 1}.
+              </Typography>
+              <Typography sx={{ fontWeight: "bold", fontSize: "1.1rem" }}>
+                {guest.name}
+              </Typography>
+            </Box>
+            <Typography sx={{ color: "#FFD700", fontWeight: "bold" }}>
+              {guest.score}
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              height: 32,
+              width: `${barPercent(guest.score)}%`,
               backgroundColor: "#FFD700",
               borderRadius: "0 4px 4px 0",
               transition: "width 0.5s ease",
-              minWidth: guest.score > 0 ? 8 : 0,
             }}
           />
-          <Typography
-            sx={{ color: "#FFD700", fontWeight: "bold", minWidth: 40 }}
-          >
-            {guest.score}
-          </Typography>
         </Box>
       ))}
 
